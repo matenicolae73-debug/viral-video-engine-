@@ -1,0 +1,67 @@
+name: Unpack ZIP
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  unpack:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Find ZIP
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+
+          if [ -z "$ZIP_FILE" ]; then
+            echo "ERROR: Nu exista niciun ZIP in root-ul repository-ului."
+            exit 1
+          fi
+
+          echo "ZIP gasit: $ZIP_FILE"
+          echo "ZIP_FILE=$ZIP_FILE" >> "$GITHUB_ENV"
+
+      - name: Unzip project
+        run: |
+          rm -rf temp_unpacked
+          mkdir temp_unpacked
+
+          unzip -o "$ZIP_FILE" -d temp_unpacked
+
+          echo "Continut ZIP:"
+          find temp_unpacked -maxdepth 3 -type f | head -100
+
+      - name: Move project files
+        run: |
+          SOURCE="temp_unpacked"
+
+          if [ -d "$SOURCE/unpacked" ]; then
+            SOURCE="$SOURCE/unpacked"
+          fi
+
+          cp -R "$SOURCE"/. .
+
+          rm -rf temp_unpacked
+          rm -f "$ZIP_FILE"
+
+      - name: Commit unpacked project
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add .
+
+          if git diff --cached --quiet; then
+            echo "Nu exista modificari de salvat."
+            exit 0
+          fi
+
+          git commit -m "Unpack Viral Video Engine"
+          git push
